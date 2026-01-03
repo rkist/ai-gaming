@@ -35,8 +35,10 @@ def input_gen():
         yield last
 
 builder = (
-    SessionBuilder.defaults(CORE)
-    .with_content(ROM)
+    # libretro.py 0.6 pattern-matching fails on PathLike in Python 3.12;
+    # pass str paths to avoid the pattern TypeError.
+    SessionBuilder.defaults(str(CORE))
+    .with_content(str(ROM))
     .with_video(video)
     .with_input(IterableInputDriver(input_gen()))
 )
@@ -46,8 +48,11 @@ def to_rgba_numpy(shot) -> np.ndarray:
     Convert libretro screenshot to (H, W, 4) uint8 RGBA, respecting pitch.
     """
     buf = np.frombuffer(shot.data, dtype=np.uint8)
-    # pitch is bytes per row, might be wider than width*4
-    rows = buf.reshape(shot.height, shot.pitch)
+    # pitch/stride can vary by libretro driver version; default to width*4 if absent
+    pitch = getattr(shot, "pitch", None) or getattr(shot, "stride", None) or (
+        shot.width * 4
+    )
+    rows = buf.reshape(shot.height, pitch)
     rgba = rows[:, : shot.width * 4].reshape(shot.height, shot.width, 4)
     return rgba
 

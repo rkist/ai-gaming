@@ -5,6 +5,7 @@ from typing import Dict, Optional, List
 import cv2
 import numpy as np
 
+# TODO: not working. Need to fix.
 
 def extract_hud(frame: np.ndarray) -> dict:
     """

@@ -3,7 +3,6 @@ import queue
 from pathlib import Path
 
 import numpy as np
-import cv2
 
 # libretro.py imports (names can vary slightly by version)
 from libretro import SessionBuilder
@@ -12,6 +11,7 @@ from libretro.drivers.input.iterable import IterableInputDriver
 from libretro.drivers.video.software.array import ArrayVideoDriver
 
 from config import load_config
+from display import WindowDisplay
 
 CORE = Path("cores/snes9x_libretro.dylib")
 ROM  = Path("roms/supermarioworld.smc")
@@ -62,6 +62,12 @@ def to_rgba_numpy(shot) -> np.ndarray:
 
 cfg = load_config()
 
+display = None
+if cfg["watch"]:
+    display = WindowDisplay(
+        cfg["window_name"], cfg["window_width"], cfg["window_height"]
+    )
+
 with builder.build() as sess:
     t = 0
     running = True
@@ -96,28 +102,8 @@ with builder.build() as sess:
 
             # Display the frame in a window if enabled
             if cfg["watch"]:
-                frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
-                # Resize if configured
-                target_w = cfg["window_width"]
-                target_h = cfg["window_height"]
-                if target_w or target_h:
-                    h, w, _ = frame_bgr.shape
-                    if target_w and target_h:
-                        new_w, new_h = target_w, target_h
-                    elif target_w:
-                        new_w = target_w
-                        new_h = round(h * (target_w / w))
-                    else:
-                        new_h = target_h
-                        new_w = round(w * (target_h / h))
-                    frame_bgr = cv2.resize(frame_bgr, (int(new_w), int(new_h)), interpolation=cv2.INTER_AREA)
-                cv2.imshow(cfg["window_name"], frame_bgr)
-
-                # Exit if window closed or 'q' pressed
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord("q") or cv2.getWindowProperty(
-                    cfg["window_name"], cv2.WND_PROP_VISIBLE
-                ) < 1:
+                running = display.show(frame)
+                if not running:
                     running = False
 
             # throttle if you want (otherwise it runs as fast as possible)
@@ -126,5 +112,5 @@ with builder.build() as sess:
     except KeyboardInterrupt:
         pass
     finally:
-        if cfg["watch"]:
-            cv2.destroyAllWindows()
+        if display:
+            display.close()

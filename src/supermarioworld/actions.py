@@ -3,48 +3,50 @@ import queue
 from libretro.api.input.joypad import JoypadState
 
 
-def create_actions_queue(maxsize: int) -> queue.Queue:
-    return queue.Queue(maxsize=maxsize)
-
-
-def input_gen(q: queue.Queue):
+class ActionManager:
     """
-    RetroArch-style controller stream: yield one JoypadState per frame.
-    If the AI hasn't produced one yet, reuse the last action.
+    Encapsulates action policy, queueing, and libretro input generator.
     """
-    last = JoypadState()
 
-    # Press START for a bit so the game begins
-    for _ in range(30):
-        yield JoypadState(start=True)
+    def __init__(self, maxsize: int):
+        self.queue = queue.Queue(maxsize=maxsize)
 
-    while True:
-        try:
-            last = q.get_nowait()
-        except queue.Empty:
-            pass
-        yield last
+    def choose_action(self, t: int, frame) -> JoypadState:
+        """
+        Simple placeholder policy:
+        - hold RIGHT always
+        - tap B (jump in SMW) every ~45 frames
+        Replace with your own model/policy as needed.
+        """
+        jump = (t % 45) == 0
+        return JoypadState(right=True, b=jump)
 
+    def enqueue_action(self, action: JoypadState) -> None:
+        """
+        Non-blocking enqueue: drop oldest if the queue is full.
+        """
+        if self.queue.full():
+            try:
+                self.queue.get_nowait()
+            except queue.Empty:
+                pass
+        self.queue.put_nowait(action)
 
-def choose_action(t: int, frame) -> JoypadState:
-    """
-    Simple placeholder policy:
-    - hold RIGHT always
-    - tap B (jump in SMW) every ~45 frames
-    Replace with your own model/policy as needed.
-    """
-    jump = (t % 45) == 0
-    return JoypadState(right=True, b=jump)
+    def input_gen(self):
+        """
+        RetroArch-style controller stream: yield one JoypadState per frame.
+        If the AI hasn't produced one yet, reuse the last action.
+        """
+        last = JoypadState()
 
+        # Press START for a bit so the game begins
+        for _ in range(30):
+            yield JoypadState(start=True)
 
-def enqueue_action(actions_queue: queue.Queue, action: JoypadState) -> None:
-    """
-    Non-blocking enqueue: drop oldest if the queue is full.
-    """
-    if actions_queue.full():
-        try:
-            actions_queue.get_nowait()
-        except queue.Empty:
-            pass
-    actions_queue.put_nowait(action)
+        while True:
+            try:
+                last = self.queue.get_nowait()
+            except queue.Empty:
+                pass
+            yield last
 

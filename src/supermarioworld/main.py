@@ -5,18 +5,12 @@ import numpy as np
 
 # libretro.py imports (names can vary slightly by version)
 from libretro import SessionBuilder
-from libretro.api.input.joypad import JoypadState
 from libretro.drivers.input.iterable import IterableInputDriver
 from libretro.drivers.video.software.array import ArrayVideoDriver
 
 from config import load_config
 from display import WindowDisplay
-from actions import (
-    choose_action,
-    enqueue_action,
-    create_actions_queue,
-    input_gen,
-)
+from actions import ActionManager
 
 CORE = Path("cores/snes9x_libretro.dylib")
 ROM  = Path("roms/supermarioworld.smc")
@@ -24,13 +18,13 @@ ROM  = Path("roms/supermarioworld.smc")
 cfg = load_config()
 
 video = ArrayVideoDriver()
-actions_queue = create_actions_queue(cfg["action_queue_maxsize"])
+actions = ActionManager(cfg["action_queue_maxsize"])
 
 builder = (
     SessionBuilder.defaults(str(CORE))
     .with_content(str(ROM))
     .with_video(video)
-    .with_input(IterableInputDriver(input_gen(actions_queue)))
+    .with_input(IterableInputDriver(actions.input_gen()))
 )
 
 def to_rgba_numpy(shot) -> np.ndarray:
@@ -67,8 +61,8 @@ with builder.build() as sess:
 
             frame = to_rgba_numpy(shot)
 
-            action = choose_action(t, frame)
-            enqueue_action(actions_queue, action)
+            action = actions.choose_action(t, frame)
+            actions.enqueue_action(action)
 
             # Display the frame in a window if enabled
             if cfg["watch"]:

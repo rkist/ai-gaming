@@ -1,5 +1,5 @@
 import queue
-
+import numpy as np
 from libretro.api.input.joypad import JoypadState
 from strategies.base import Strategy
 from strategies.random import RandomStrategy
@@ -15,6 +15,9 @@ class ActionManager:
 
     def choose_action(self, t: int, frame) -> JoypadState:
         return self.strategy.choose_action(t, frame)
+
+    def extract_hud(self, frame: np.ndarray) -> dict:
+        return self.strategy.extract_hud(frame)
 
     def enqueue_action(self, action: JoypadState) -> None:
         """
@@ -35,8 +38,11 @@ class ActionManager:
         last = JoypadState()
 
         # Press START for a bit so the game begins
-        for _ in range(30):
+        for _ in range(60):
             yield JoypadState(start=True)
+
+        for i in range(300):
+            yield JoypadState(a=i % 5 == 0)
 
         while True:
             try:

@@ -1,4 +1,5 @@
 import time
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +17,12 @@ CORE = Path("cores/snes9x_libretro.dylib")
 ROM  = Path("roms/supermarioworld.smc")
 
 cfg = load_config()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 video = ArrayVideoDriver()
 actions = ActionManager(cfg["action_queue_maxsize"])
@@ -47,6 +54,14 @@ if cfg["watch"]:
         cfg["window_name"], cfg["window_width"], cfg["window_height"]
     )
 
+logger.info(
+    "Starting SMW session strategy=%s queue_max=%s watch=%s throttle_fps=%s",
+    type(actions.strategy).__name__,
+    cfg["action_queue_maxsize"],
+    cfg["watch"],
+    cfg["throttle_fps"],
+)
+
 with builder.build() as sess:
     t = 0
     running = True
@@ -63,6 +78,11 @@ with builder.build() as sess:
 
             action = actions.choose_action(t, frame)
             actions.enqueue_action(action)
+
+            if t % 60 == 0:
+                # logger.info("t=%d action=%s", t, action)
+                hud = actions.extract_hud(frame)
+                logger.info("hud=%s", hud)
 
             # Display the frame in a window if enabled
             if cfg["watch"]:

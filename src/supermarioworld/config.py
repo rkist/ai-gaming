@@ -11,6 +11,7 @@ DEFAULT_CONFIG = {
     "throttle_fps": None,
     "window_width": None,
     "window_height": None,
+    "action_queue_maxsize": 2,
 }
 
 
@@ -23,6 +24,7 @@ def load_config():
       throttle_fps (int|float|null): cap loop rate if set
       window_width (int|null): resize window width; preserves aspect if height missing
       window_height (int|null): resize window height; preserves aspect if width missing
+      action_queue_maxsize (int): max queued actions; lower keeps latency small
     """
     cfg = DEFAULT_CONFIG.copy()
     try:

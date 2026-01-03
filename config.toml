@@ -8,4 +8,6 @@ throttle_fps = 0
 # Optional: resize window (preserves aspect if only one is set)
 window_width = 1280
 window_height = 720
+# Max queued actions to keep latency small
+action_queue_maxsize = 2
 

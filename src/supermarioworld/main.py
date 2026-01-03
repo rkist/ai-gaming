@@ -1,5 +1,4 @@
 import time
-import queue
 from pathlib import Path
 
 import numpy as np
@@ -12,39 +11,26 @@ from libretro.drivers.video.software.array import ArrayVideoDriver
 
 from config import load_config
 from display import WindowDisplay
+from actions import (
+    choose_action,
+    enqueue_action,
+    create_actions_queue,
+    input_gen,
+)
 
 CORE = Path("cores/snes9x_libretro.dylib")
 ROM  = Path("roms/supermarioworld.smc")
 
-actions = queue.Queue(maxsize=2)  # small so we don't build latency
+cfg = load_config()
+
 video = ArrayVideoDriver()
-
-
-def input_gen():
-    """
-    RetroArch-style controller stream: yield one JoypadState per frame.
-    If the AI hasn't produced one yet, reuse the last action.
-    """
-    last = JoypadState()
-
-    # Press START for a bit so the game begins
-    for _ in range(30):
-        yield JoypadState(start=True)
-
-    while True:
-        try:
-            last = actions.get_nowait()
-        except queue.Empty:
-            pass
-        yield last
+actions_queue = create_actions_queue(cfg["action_queue_maxsize"])
 
 builder = (
-    # libretro.py 0.6 pattern-matching fails on PathLike in Python 3.12;
-    # pass str paths to avoid the pattern TypeError.
     SessionBuilder.defaults(str(CORE))
     .with_content(str(ROM))
     .with_video(video)
-    .with_input(IterableInputDriver(input_gen()))
+    .with_input(IterableInputDriver(input_gen(actions_queue)))
 )
 
 def to_rgba_numpy(shot) -> np.ndarray:
@@ -60,7 +46,6 @@ def to_rgba_numpy(shot) -> np.ndarray:
     rgba = rows[:, : shot.width * 4].reshape(shot.height, shot.width, 4)
     return rgba
 
-cfg = load_config()
 
 display = None
 if cfg["watch"]:
@@ -82,23 +67,8 @@ with builder.build() as sess:
 
             frame = to_rgba_numpy(shot)
 
-            # ---- YOUR AI GOES HERE ----
-            # Example policy:
-            # - hold RIGHT always
-            # - tap B (jump in SMW) every ~45 frames
-            jump = (t % 45) == 0
-
-            # SNES mapping in libretro terms:
-            # JoypadState(b=...) is SNES B, (a=...) is SNES A, etc.
-            action = JoypadState(right=True, b=jump)
-
-            # Non-blocking: if queue is full, drop older action
-            if actions.full():
-                try:
-                    actions.get_nowait()
-                except queue.Empty:
-                    pass
-            actions.put_nowait(action)
+            action = choose_action(t, frame)
+            enqueue_action(actions_queue, action)
 
             # Display the frame in a window if enabled
             if cfg["watch"]:

@@ -1,25 +1,20 @@
 import queue
 
 from libretro.api.input.joypad import JoypadState
-
+from strategies.base import Strategy
+from strategies.random import RandomStrategy
 
 class ActionManager:
     """
     Encapsulates action policy, queueing, and libretro input generator.
     """
 
-    def __init__(self, maxsize: int):
+    def __init__(self, maxsize: int, strategy: Strategy | None = None):
         self.queue = queue.Queue(maxsize=maxsize)
+        self.strategy: Strategy = strategy or RandomStrategy()
 
     def choose_action(self, t: int, frame) -> JoypadState:
-        """
-        Simple placeholder policy:
-        - hold RIGHT always
-        - tap B (jump in SMW) every ~45 frames
-        Replace with your own model/policy as needed.
-        """
-        jump = (t % 45) == 0
-        return JoypadState(right=True, b=jump)
+        return self.strategy.choose_action(t, frame)
 
     def enqueue_action(self, action: JoypadState) -> None:
         """

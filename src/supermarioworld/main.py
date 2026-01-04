@@ -80,7 +80,7 @@ with builder.build() as sess:
             actions.enqueue_action(action)
 
             if t % 500 == 0:
-                logger.info("t=%d action=%s", t, action)
+                # logger.info("t=%d action=%s", t, action)
                 hud = actions.extract_hud(frame)
                 logger.info("hud=%s", hud)
 

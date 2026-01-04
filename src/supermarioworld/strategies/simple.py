@@ -65,12 +65,13 @@ class SimpleLearningStrategy(Strategy):
         Estimate horizontal progress using dense optical flow, robust to scene cuts.
         Positive dx => rightward motion. Scene-change spikes are nulled.
         """
-        prev_f = prev.astype(np.float32)
-        curr_f = curr.astype(np.float32)
+        # Farneback works better on uint8, so scale up grayscale
+        prev_f = (prev * 255.0).astype(np.uint8)
+        curr_f = (curr * 255.0).astype(np.uint8)
 
         # Detect large scene changes (e.g., room transition); neutral reward
-        frame_delta = np.mean(np.abs(prev_f - curr_f))
-        if frame_delta > 0.2:  # heuristic on normalized grayscale
+        frame_delta = float(np.mean(np.abs(prev_f.astype(np.float32) - curr_f.astype(np.float32))) / 255.0)
+        if frame_delta > 0.2: 
             return 0.0
 
         flow = cv2.calcOpticalFlowFarneback(
@@ -88,17 +89,23 @@ class SimpleLearningStrategy(Strategy):
 
         # Focus on the central region to reduce HUD/border influence
         h, w = flow.shape[:2]
-        y0, y1 = int(h * 0.15), int(h * 0.85)
-        x0, x1 = int(w * 0.15), int(w * 0.85)
+        y0, y1 = int(h * 0.20), int(h * 0.80)
+        x0, x1 = int(w * 0.05), int(w * 0.95)
         central_flow = flow[y0:y1, x0:x1]
 
-        dx = float(np.median(central_flow[..., 0]))
-        dy = float(np.median(central_flow[..., 1]))
+        # Use only pixels with meaningful motion to avoid median=0 from noise
+        mag = np.linalg.norm(central_flow, axis=2)
+        mask = mag > 0.01  # require a bit more motion to count
+        if not np.any(mask):
+            return 0.0
 
-        reward = dx
-        
-        if abs(reward) > 1.0:
-            print(f"large reward detected: reward={reward}")
+        dx = float(np.mean(central_flow[..., 0][mask]))
+        dy = float(np.mean(central_flow[..., 1][mask]))
+
+        reward = dx - 0.1 * abs(dy)
+
+        if abs(reward) > 0.5:
+            print(f"reward detected: reward={reward}")
             print(f"dx={dx}, dy={dy}")
 
         reward = float(np.clip(reward, -5.0, 5.0))

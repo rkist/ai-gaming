@@ -22,15 +22,15 @@ def extract_hud(frame: np.ndarray) -> dict:
             int(x * sx) : int((x + cw) * sx),
         ]
 
-    # Regions (approx, based on SMW HUD layout):
+    # Regions (approx, based on SMW HUD layout, SNES base 256x224):
     # lives near top-left after the "x" icon
-    lives_region = crop(56, 8, 24, 18)
+    lives_region = crop(60, 6, 28, 20)
     # time digits (3) after TIME text (top-right)
-    time_region = crop(200, 10, 40, 18)
+    time_region = crop(184, 8, 72, 20)
     # coin count near top-right under coin icon
-    coins_region = crop(200, 18, 32, 18)
+    coins_region = crop(206, 18, 34, 18)
     # score (up to 6 digits) just below coins
-    score_region = crop(188, 36, 72, 20)
+    score_region = crop(176, 32, 96, 22)
 
     lives_digits = _extract_digits(lives_region, 1)
     time_digits = _extract_digits(time_region, 3)
@@ -219,7 +219,7 @@ def _digit_templates() -> Dict[str, np.ndarray]:
     return tmpl
 
 
-def _extract_digits(region: np.ndarray, count: int, threshold: int = 160) -> Optional[List[str]]:
+def _extract_digits(region: np.ndarray, count: int, threshold: int | None = None) -> Optional[List[str]]:
     """
     Extract 'count' digits from a HUD subregion using simple binarize + template match.
     Returns list of digit characters or None if detection fails.
@@ -227,21 +227,24 @@ def _extract_digits(region: np.ndarray, count: int, threshold: int = 160) -> Opt
     if region is None or region.size == 0:
         return None
     gray = cv2.cvtColor(region, cv2.COLOR_RGBA2GRAY)
-    _, bw = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
 
-    # find contours/digits
-    contours, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
-        return None
-    boxes = [cv2.boundingRect(c) for c in contours]
-    boxes = sorted(boxes, key=lambda b: b[0])  # left-to-right
+    # Binarize (adaptive to handle varying brightness)
+    bw = cv2.adaptiveThreshold(
+        gray,
+        255,
+        cv2.ADAPTIVE_THRESH_MEAN_C,
+        cv2.THRESH_BINARY,
+        11,
+        2,
+    )
 
-    # If we didn't get expected count, bail
-    if len(boxes) != count:
-        # fallback: split evenly
-        h, w = bw.shape
-        step = max(1, w // max(1, count))
-        boxes = [(i * step, 0, step, h) for i in range(count)]
+    h, w = bw.shape
+    slice_w = max(1, w // max(1, count))
+    boxes = []
+    for i in range(count):
+        x0 = i * slice_w
+        x1 = w if i == count - 1 else (i + 1) * slice_w
+        boxes.append((x0, 0, x1 - x0, h))
 
     tmpl = _digit_templates()
     digits: List[str] = []

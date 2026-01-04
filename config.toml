@@ -6,8 +6,8 @@ window_name = "Super Mario World (libretro)"
 # Optional: cap loop rate (frames per second). Set to 0 or omit for unlimited.
 throttle_fps = 0
 # Optional: resize window (preserves aspect if only one is set)
-window_width = 1280
-window_height = 720
+window_width = 1024
+window_height = 896
 # Max queued actions to keep latency small
 action_queue_maxsize = 2
 

@@ -3,6 +3,7 @@ import numpy as np
 from libretro.api.input.joypad import JoypadState
 from strategies.base import Strategy
 from strategies.random import RandomStrategy
+from strategies.simple import SimpleLearningStrategy
 
 class ActionManager:
     """
@@ -11,7 +12,7 @@ class ActionManager:
 
     def __init__(self, maxsize: int, strategy: Strategy | None = None):
         self.queue = queue.Queue(maxsize=maxsize)
-        self.strategy: Strategy = strategy or RandomStrategy()
+        self.strategy: Strategy = strategy or SimpleLearningStrategy()
 
     def choose_action(self, t: int, frame) -> JoypadState:
         return self.strategy.choose_action(t, frame)
